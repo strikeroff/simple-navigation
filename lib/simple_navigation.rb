@@ -102,6 +102,8 @@ module SimpleNavigation
 
 end
 
+SimpleNavigation.config_file_path = File.join(RAILS_ROOT, 'config') unless SimpleNavigation.config_file_path
+ActionController::Base.send(:include, SimpleNavigation::ControllerMethods)
 # TODOs for the next releases:
 # 1) add ability to specify explicit highlighting in the config-file itself (directly with the item)
 #    - item.highlight_on :controller => 'users', :action => 'show' ...^
