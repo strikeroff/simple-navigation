@@ -36,40 +36,46 @@ describe SimpleNavigation::Helpers do
     end
     
     context 'primary' do
-      before(:each) do
-        @controller.instance_variable_set(:@current_primary_navigation, :current_primary)
-      end
       it "should call render on the primary_navigation" do
-        @primary_navigation.should_receive(:render).with(:current_primary)
+        @primary_navigation.should_receive(:render)
         @controller.render_navigation(:primary)
       end
       it "should call render on the primary_navigation (specifying level through options)" do
-        @primary_navigation.should_receive(:render).with(:current_primary)
+        @primary_navigation.should_receive(:render)
         @controller.render_navigation(:level => :primary)
+      end
+      it "should call render on the primary_navigation (specifying level through options)" do
+        @primary_navigation.should_receive(:render)
+        @controller.render_navigation(:level => 1)
       end
     end
     
     context 'secondary' do
       context 'with current_primary_navigation set' do
         before(:each) do
-          @sub_navigation = stub(:sub_navigation, :null_object => true)
-          @primary_navigation.stub!(:[]).and_return(@sub_navigation)
-          @controller.instance_variable_set(:@current_primary_navigation, :current_primary)
-          @controller.instance_variable_set(:@current_secondary_navigation, :current_secondary)
+          @selected_item_container = stub(:selected_container, :null_object => true)
+          SimpleNavigation.stub!(:active_item_container_for => @selected_item_container)
         end
-        it "should find the sub_navigation belonging to the current primary_navigation" do
-          @primary_navigation.should_receive(:[]).with(:current_primary)
+        it "should find the selected sub_navigation for the specified level" do
+          SimpleNavigation.should_receive(:active_item_container_for).with(2)
           @controller.render_navigation(:secondary)
         end
-        it "should call render on the current primary_navigation's sub_navigation" do
-          @sub_navigation.should_receive(:render).with(:current_secondary)
+        it "should find the selected sub_navigation for the specified level" do
+          SimpleNavigation.should_receive(:active_item_container_for).with(2)
+          @controller.render_navigation(:level => :secondary)
+        end
+        it "should find the selected sub_navigation for the specified level" do
+          SimpleNavigation.should_receive(:active_item_container_for).with(1)
+          @controller.render_navigation(:level => 1)
+        end
+        it "should call render on the active item_container" do
+          @selected_item_container.should_receive(:render)
           @controller.render_navigation(:secondary)
         end
       end
-      context 'without current_primary_navigation set' do
+      context 'without an active item_container set' do
         before(:each) do
-          @primary_navigation.stub!(:[]).and_return(nil)
-          @controller.instance_variable_set(:@current_primary_navigation, nil)
+          SimpleNavigation.stub!(:active_item_container_for => nil)
         end
         it "should not raise an error" do
           lambda{@controller.render_navigation(:secondary)}.should_not raise_error
@@ -79,24 +85,8 @@ describe SimpleNavigation::Helpers do
     end
     
     context 'nested' do
-      before(:each) do
-        @controller.instance_variable_set(:@current_primary_navigation, :current_primary)
-        @controller.instance_variable_set(:@current_secondary_navigation, :current_secondary)
-      end
-      it "should call render on the primary navigation" do
-        @primary_navigation.should_receive(:render).with(anything, anything, anything)
-        @controller.render_navigation(:nested)
-      end
-      it "should call render with the current_primary_navigation" do
-        @primary_navigation.should_receive(:render).with(:current_primary, anything, anything)
-        @controller.render_navigation(:nested)
-      end
-      it "should call render with the include_subnavigation option set" do
-        @primary_navigation.should_receive(:render).with(anything, true, anything)
-        @controller.render_navigation(:nested)
-      end
-      it "should call render with the current_sub_navigation" do
-        @primary_navigation.should_receive(:render).with(anything, anything, :current_secondary)
+      it "should call render on the primary navigation with the include_subnavigation option set" do
+        @primary_navigation.should_receive(:render).with(true)
         @controller.render_navigation(:nested)
       end
     end
@@ -105,20 +95,30 @@ describe SimpleNavigation::Helpers do
       it "should raise an error" do
         lambda {@controller.render_navigation(:unknown)}.should raise_error(ArgumentError)
       end
+      it "should raise an error" do
+        lambda {@controller.render_navigation(:level => :unknown)}.should raise_error(ArgumentError)
+      end
+      it "should raise an error" do
+        lambda {@controller.render_navigation('level')}.should raise_error(ArgumentError)
+      end
     end
   end
   
   describe 'render_primary_navigation' do  
     it "should delegate to render_navigation(:primary)" do
-      @controller.should_receive(:render_navigation).with(:level => :primary)
-      @controller.render_primary_navigation
+      ActiveSupport::Deprecation.silence do
+        @controller.should_receive(:render_navigation).with(:level => 1)
+        @controller.render_primary_navigation
+      end
     end
   end
   
   describe 'render_sub_navigation' do
     it "should delegate to render_navigation(:secondary)" do
-      @controller.should_receive(:render_navigation).with(:level => :secondary)
-      @controller.render_sub_navigation
+      ActiveSupport::Deprecation.silence do
+        @controller.should_receive(:render_navigation).with(:level => 2)
+        @controller.render_sub_navigation
+      end
     end
   end
   

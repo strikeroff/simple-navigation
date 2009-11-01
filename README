@@ -1,4 +1,5 @@
-
+It is a fork of
+  http://github.com/andi/simple-navigation
 == Simple Navigation
 
 Simple Navigation is a plugin for creating a navigation (optionally with sub navigation) for your rails app.
@@ -14,6 +15,16 @@ Online Demo:
 
 Discussion Group for Feedback and Questions
   http://groups.google.com/group/simple-navigation
+
+
+Diff from original
+   Some times you need to show all navigation tree on page(site map, for example), without config changes
+   Extra level :all can help you
+   
+     render_navigation(:level=>:all)
+
+
+
 
 Copyright (c) 2009 Andi Schacke, released under the MIT license
 

@@ -1,65 +1,82 @@
 module SimpleNavigation
-  
+
   # View helpers to render the navigation.
   #
-  # Use render_primary_navigation to render your primary navigation with the configured renderer.
-  # Use render_sub_navigation to render the sub navigation belonging to the active primary navigation.
-  # Use render_navigation to render the primary navigation with the corresponding sub navigation rendered inside primary navigation item which is active.
-  # 
+  # Use render_navigation as following to render your navigation:
+  # * call <tt>render_navigation</tt> without :level option to render your navigation as nested tree.
+  # * call <tt>render_navigation(:level => x)</tt> to render a specific navigation level (e.g. :level => 1 to render your primary navigation, :level => 2 to render the sub navigation and so forth)
+  #
   # ==== Examples (using Haml)
-  #   #primary_navigation= render_primary_navigation
-  #   
-  #   #sub_navigation= render_sub_navigation
+  #   #primary_navigation= render_navigation(:level => 1)
   #
-  #   #main_navigation= render_navigation
+  #   #sub_navigation= render_navigation(:level => 2)
   #
+  #   #nested_navigation= render_navigation
+  #
+  # Please note that <tt>render_primary_navigation</tt> and <tt>render_sub_navigation</tt> still work, but have been deprecated and may be removed in a future release.
   module Helpers
-    
-    # Renders the navigation according to the specified options-hash. 
+
+    # Renders the navigation according to the specified options-hash.
     #
     # The following options are supported:
-    # * <tt>level</tt> - defaults to :nested which renders the the sub_navigation for an active primary_navigation inside that active primary_navigation item. 
-    #   Other possible levels are :primary which only renders the primary_navigation (also see render_primary_navigation) and :secondary which only renders the sub_navigation (see render_sub_navigation).
-    # * <tt>context</tt> - specifies the context for which you would render the navigation. Defaults to :default which loads the default navigation.rb (i.e. config/navigation.rb)
-    #   if you specify a context then the plugin tries to load the configuration file for that context, e.g. if you call <tt>render_navigation(:context => :admin)</tt> the file config/admin_navigation.rb
+    # * <tt>:level</tt> - defaults to :nested which renders the the sub_navigation for an active primary_navigation inside that active primary_navigation item.
+    #   Specify a specific level to only render that level of navigation (e.g. :level => 1 for primary_navigation etc...).
+    # * <tt>:context</tt> - specifies the context for which you would render the navigation. Defaults to :default which loads the default navigation.rb (i.e. config/navigation.rb).
+    #   If you specify a context then the plugin tries to load the configuration file for that context, e.g. if you call <tt>render_navigation(:context => :admin)</tt> the file config/admin_navigation.rb
     #   will be loaded and used for rendering the navigation.
-    #   
+    #
     def render_navigation(*args)
       args = [Hash.new] if args.empty?
-      default_options = {:context => :default, :level => :nested}
-      level, navigation_context = case args.first 
-      when Hash
-        options = default_options.merge(args.first)
-        [options[:level], options[:context]]
-      when Symbol
-        [args[0], default_options.merge(args[1] || {})[:context]]
-      else
-        raise ArgumentError, "Invalid arguments"
-      end
-      SimpleNavigation.load_config(navigation_context)
-      SimpleNavigation::Configuration.eval_config(self, navigation_context)
-      case level
-      when :primary
-        SimpleNavigation.primary_navigation.render(@current_primary_navigation)
-      when :secondary
-        primary = SimpleNavigation.primary_navigation[@current_primary_navigation]
-        primary.sub_navigation.render(@current_secondary_navigation) if primary && primary.sub_navigation
-      when :nested
-        SimpleNavigation.primary_navigation.render(@current_primary_navigation, true, @current_secondary_navigation)
-      else
-        raise ArgumentError, "Invalid navigation level: #{level}"
+      options = extract_backwards_compatible_options(*args)
+      options = {:context => :default, :level => :nested}.merge(options)
+      SimpleNavigation.load_config(options[:context])
+      SimpleNavigation::Configuration.eval_config(self, options[:context])
+      SimpleNavigation.handle_explicit_navigation
+      case options[:level]
+        when Integer
+          active_item_container = SimpleNavigation.active_item_container_for(options[:level])
+          active_item_container.render if active_item_container
+        when :nested
+          SimpleNavigation.primary_navigation.render(true)
+        when :all
+          SimpleNavigation.primary_navigation.render(true,:all=>true)
+        else
+          raise ArgumentError, "Invalid navigation level: #{options[:level]}"
       end
     end
-    
-    # Renders the primary_navigation with the configured renderer. Calling render_navigation(:level => :primary) has the same effect.
+
+    # Deprecated. Renders the primary_navigation with the configured renderer. Calling render_navigation(:level => 0) has the same effect.
     def render_primary_navigation(options = {})
-      render_navigation(options.merge(:level => :primary))
+      ActiveSupport::Deprecation.warn("SimpleNavigation::Helpers.render_primary_navigation has been deprected. Please use render_navigation(:level => 1) instead")
+      render_navigation(options.merge(:level => 1))
     end
-    
-    # Renders the sub_navigation with the configured renderer. Calling render_navigation(:level => :secondary) has the same effect.
+
+    # Deprecated. Renders the sub_navigation with the configured renderer. Calling render_navigation(:level => 1) has the same effect.
     def render_sub_navigation(options = {})
-      render_navigation(options.merge(:level => :secondary))
+      ActiveSupport::Deprecation.warn("SimpleNavigation::Helpers.render_primary_navigation has been deprected. Please use render_navigation(:level => 2) instead")
+      render_navigation(options.merge(:level => 2))
     end
-    
+
+    private
+
+    def extract_backwards_compatible_options(*args)
+      case args.first
+        when Hash
+          options = args.first
+          options[:level] = 1 if options[:level] == :primary
+          options[:level] = 2 if options[:level] == :secondary
+        when Symbol
+          raise ArgumentError, "Invalid arguments" unless [:primary, :secondary, :nested].include? args.first
+          options = Hash.new
+          options[:level] = args.first
+          options[:level] = 1 if options[:level] == :primary
+          options[:level] = 2 if options[:level] == :secondary
+          options.merge!(args[1] || {})
+        else
+          raise ArgumentError, "Invalid arguments"
+      end
+      options
+    end
+
   end
 end
